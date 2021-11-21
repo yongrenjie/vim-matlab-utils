@@ -6,7 +6,10 @@ function! matlabutils#initialise() abort
     call matlabutils#set_path()
 
     nnoremap <buffer><silent> gf :call matlabutils#goto_file()<CR>
-    nnoremap <buffer><silent> K  :call matlabutils#show_or_hide_docs()<CR>
+    
+    if has('popupwin')   " excludes nvim (or ancient vim, I guess)
+        nnoremap <buffer><silent> K  :call matlabutils#show_or_hide_docs()<CR>
+    endif
 endfunction
 
 
@@ -59,17 +62,6 @@ endfunction
 
 
 " Search for a function in the Matlab path.
-"
-" Note that Matlab's path resolution is horrendous. Like, ABSOLUTELY ATROCIOUS.
-" See https://uk.mathworks.com/help/matlab/matlab_oop/scoping-classes-with-packages.html
-" Therefore, this plugin doesn't attempt to get it right (at this point in
-" time, at least). If there are clashes (such as those described in the link
-" above), this plugin will not necessarily resolve them in the correct order
-" as stipulated there. You have been warned.
-" The solution to this, as far as I'm concerned, is for the programmer to:
-"    (a) not use Matlab. Given that you're reading this, that is unlikely. But
-"        it should be borne in mind for other projects.
-"    (b) be very careful about avoiding naming conflicts.
 function! matlabutils#find_file(function_name) abort
     if empty(s:matlab_path) | return | endif
 
