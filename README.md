@@ -25,5 +25,7 @@ The solution to this is for the programmer (you) to either:
 
 `K` opens a popup window at the cursor showing documentation for the function under the cursor.
 
+The popup window can be scrolled with `<C-j>` and `<C-k>`. Pressing `K` again will close the popup window.
+
 The same caveats as for `gf` apply here.
 In addition, it should be noted that (for now) this only works with Vim 8 (and not Neovim), because it uses the `popup_...()` family of functions introduced in Vim 8.2.

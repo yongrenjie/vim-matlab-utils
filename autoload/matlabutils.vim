@@ -9,6 +9,10 @@ function! matlabutils#initialise() abort
     
     if has('popupwin')   " excludes nvim (or ancient vim, I guess)
         nnoremap <buffer><silent> K  :call matlabutils#show_or_hide_docs()<CR>
+        nnoremap <buffer><silent><expr> <C-j>
+                    \ matlabutils#popup_is_active() ? ":call matlabutils#popup_scroll(2)<CR>" : "<C-j>"
+        nnoremap <buffer><silent><expr> <C-k>
+                    \ matlabutils#popup_is_active() ? ":call matlabutils#popup_scroll(-2)<CR>" : "<C-k>"
     endif
 endfunction
 
@@ -176,12 +180,51 @@ function matlabutils#show_or_hide_docs() abort
         if empty(docs)
             echomsg 'no documentation found in file ' . file_name
         else
-            let s:popup_id = popup_atcursor(docs, {})
+            let s:popup_id = popup_atcursor(docs, {
+                        \ 'padding': [0, 1, 0, 1],
+                        \ 'border': [1, 1, 1, 1],
+                        \ })
         endif
 
     " Hide docs if popup is active
     else
         call popup_close(s:popup_id)
         let s:popup_id = -1
+    endif
+endfunction
+
+
+function matlabutils#popup_is_active() abort
+    return s:popup_id != -1
+endfunction
+
+
+function matlabutils#popup_scroll(val) abort
+    if s:popup_id == -1 | return | endif
+
+    " It seems preferable to use C-e and C-y, because (unlike the buildin
+    " popup_setoptions function) these don't change the width of the popup
+    " window.
+    "
+    " If a:val is negative (i.e. scrolling up), we can just use C-y as many
+    " times as we like, as it can't go beyond the top.
+    if a:val < 0
+        let i = 0
+        while i < -a:val
+            call win_execute(s:popup_id, "normal! \<C-y>")
+            let i += 1
+        endwhile
+    " If a:val is positive (i.e. scrolling down), then we have to make sure we
+    " don't go beyond the last line (since C-e can do that by default).
+    elseif a:val > 0
+        let pos = popup_getpos(s:popup_id)
+        let cur_last_line = pos.lastline
+        let max_last_line = str2nr(trim(win_execute(s:popup_id, "echo line ('$')")))
+        let i = 0
+        while i < a:val && cur_last_line < max_last_line
+            call win_execute(s:popup_id, "normal! \<C-e>")
+            let i += 1
+            let cur_last_line += 1
+        endwhile
     endif
 endfunction
