@@ -71,43 +71,42 @@ endfunction
 function! matlabutils#find_file(function_name) abort
     if empty(s:matlab_path) | return | endif
 
-    " Deal with functions without dots, i.e. just look for the .m files
+    " Figure out what the correct filename for the script is, relative to a
+    " directory in the Matlab path
     if match(a:function_name, '\v\.') == -1
-        for directory in s:matlab_path
-            let script_name = a:function_name . '.m'
-            let candidate_path = directory . '/' . script_name
-            if filereadable(candidate_path)
-                return simplify(candidate_path)
-            endif
-        endfor
+        " No dots, i.e. an ordinary function
+        " expm -> expm.m
+        let script_name = a:function_name . '.m'
     else
-        for directory in s:matlab_path
-            " foo.bar.baz -> +foo/+bar/baz.m
-            let paths = split(a:function_name, '\v\.')
-            call map(paths, {idx, val -> 
-                        \ idx == len(paths) - 1 ? val . '.m' : '+' . val})
-            let script_name = join(paths, '/')
-            let candidate_path = directory . '/' . script_name
-            echomsg(candidate_path)
-            if filereadable(candidate_path)
-                return simplify(candidate_path)
-            endif
-        endfor
+        " Has dots, i.e. a package (or possibly a class, but that remains
+        " unimplemented)
+        " foo.bar.baz -> +foo/+bar/baz.m
+        let paths = split(a:function_name, '\v\.')
+        call map(paths, {idx, val -> 
+                    \ idx == len(paths) - 1 ? val . '.m' : '+' . val})
+        let script_name = join(paths, '/')
     endif
 
-    echomsg '.m file for function ''' . a:function_name . ''' not found'
-    return ''
+    " Return the path directly if found
+    for directory in s:matlab_path
+        let candidate_path = directory . '/' . script_name
+        if filereadable(candidate_path)
+            return simplify(candidate_path)
+        endif
+    endfor
 endfunction
 
 
 function! matlabutils#goto_file() abort
-    " Error messages are handled in find_file() so we have none here.
     let function_name = matlabutils#get_function_under_cursor()
+
     if !empty(function_name)
         let file_name = matlabutils#find_file(function_name)
         if !empty(file_name)
             unsilent execute 'edit ' . file_name
         endif
+    else
+        echomsg '.m file for function ''' . a:function_name . ''' not found'
     endif
 endfunction
 
