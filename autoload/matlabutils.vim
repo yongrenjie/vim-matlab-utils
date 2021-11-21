@@ -1,10 +1,12 @@
 let s:matlab_path = []
+let s:popup_id = -1
 
 
 function! matlabutils#initialise() abort
     call matlabutils#set_path()
 
     nnoremap <buffer><silent> gf :call matlabutils#goto_file()<CR>
+    nnoremap <buffer><silent> K  :call matlabutils#show_or_hide_docs()<CR>
 endfunction
 
 
@@ -104,9 +106,9 @@ function! matlabutils#goto_file() abort
         let file_name = matlabutils#find_file(function_name)
         if !empty(file_name)
             unsilent execute 'edit ' . file_name
+        else
+            echomsg '.m file for function ''' . function_name . ''' not found'
         endif
-    else
-        echomsg '.m file for function ''' . a:function_name . ''' not found'
     endif
 endfunction
 
@@ -130,4 +132,64 @@ function! matlabutils#get_function_under_cursor() abort
     endwhile
 
     return slice(line, name_start, name_end)
+endfunction
+
+
+" Obtains header comments from a given Matlab file. The header comments may be
+" placed either at the very top of the file, or immediately after the function
+" definition.
+function! matlabutils#get_doc_from_file(fname) abort
+    let lines = readfile(a:fname)
+
+    " Skip forward to find the first line that isn't whitespace-only
+    let start_lnum = 0
+    while empty(trim(lines[start_lnum]))
+        let start_lnum = start_lnum + 1
+    endwhile
+    " If it's the function definition, start on the line immediately after it
+    if lines[start_lnum] =~ '\v^\s*function.+$'
+        let start_lnum = start_lnum + 1
+    endif
+
+    " Search for the first line that isn't whitespace or comments
+    let end_lnum = start_lnum
+    while lines[end_lnum] =~ '\v^\s*(\%.*)?$'
+        let end_lnum = end_lnum + 1
+    endwhile
+    let end_lnum = end_lnum - 1
+    " Backtrack to remove trailing whitespace-only lines
+    while lines[end_lnum] =~ '\v^\s*$'
+        let end_lnum = end_lnum - 1
+    endwhile
+
+    let lines = slice(lines, start_lnum, end_lnum + 1)
+    call map(lines, {_, val -> substitute(val, '\v^\s*\%\s*', '', '')})
+    return lines
+endfunction
+
+
+function matlabutils#show_or_hide_docs() abort
+    " Show docs if popup is not active
+    if s:popup_id == -1
+        let function_name = matlabutils#get_function_under_cursor()
+        if empty(function_name) | return | endif
+
+        let file_name = matlabutils#find_file(function_name)
+        if empty(file_name)
+            echomsg '.m file for function ''' . function_name . ''' not found'
+            return
+        endif
+
+        let docs = matlabutils#get_doc_from_file(file_name)
+        if empty(docs)
+            echomsg 'no documentation found in file ' . file_name
+        else
+            let s:popup_id = popup_atcursor(docs, {})
+        endif
+
+    " Hide docs if popup is active
+    else
+        call popup_close(s:popup_id)
+        let s:popup_id = -1
+    endif
 endfunction
